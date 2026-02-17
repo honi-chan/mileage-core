@@ -1,0 +1,26 @@
+meta {
+  name: Redeem Mileage
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/v1/mileage/redeem
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+headers {
+  Idempotency-Key: redeem-001
+}
+
+body:json {
+  {
+    "amount": 50,
+    "reason": "coupon"
+  }
+}

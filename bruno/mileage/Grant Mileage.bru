@@ -1,0 +1,26 @@
+meta {
+  name: Grant Mileage
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/v1/mileage/grant
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+headers {
+  Idempotency-Key: grant-001
+}
+
+body:json {
+  {
+    "amount": 100,
+    "reason": "daily_login"
+  }
+}

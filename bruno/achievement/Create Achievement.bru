@@ -1,0 +1,22 @@
+meta {
+  name: Create Achievement
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/v1/achievements
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "action_type": "daily_login",
+    "idempotency_key": "achieve-001"
+  }
+}
