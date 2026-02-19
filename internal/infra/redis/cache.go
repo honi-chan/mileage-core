@@ -45,8 +45,7 @@ func (c *Cache) Close() error {
 }
 
 func balanceKey(userID string) string {
-	// fmt.Sprintf を使用して効率的にキー生成
-	return fmt.Sprintf("mileage:balance:%s", userID)
+	return "mileage:balance:" + userID
 }
 
 // GetBalance はキャッシュから残高を取得する

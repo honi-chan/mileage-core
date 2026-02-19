@@ -17,28 +17,33 @@ func RateLimit(rps float64, burst int) echo.MiddlewareFunc {
 	}
 
 	var (
-		mu       sync.RWMutex
-		limiters = make(map[string]*limiterEntry)
+		mu         sync.RWMutex
+		limiters   = make(map[string]*limiterEntry)
+		cleanupOnce sync.Once
 	)
 
 	// 定期的に古いエントリを削除（メモリリーク防止）
-	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
-		defer ticker.Stop()
-		for range ticker.C {
-			mu.Lock()
-			for ip, entry := range limiters {
-				if time.Since(entry.lastSeen) > 3*time.Minute {
-					delete(limiters, ip)
+	// sync.Onceで一度だけ起動
+	cleanupOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(1 * time.Minute)
+			defer ticker.Stop()
+			for range ticker.C {
+				mu.Lock()
+				for ip, entry := range limiters {
+					if time.Since(entry.lastSeen) > 3*time.Minute {
+						delete(limiters, ip)
+					}
 				}
+				mu.Unlock()
 			}
-			mu.Unlock()
-		}
-	}()
+		}()
+	})
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			ip := c.RealIP()
+			now := time.Now()
 
 			mu.RLock()
 			entry, exists := limiters[ip]
@@ -51,14 +56,17 @@ func RateLimit(rps float64, burst int) echo.MiddlewareFunc {
 				if !exists {
 					entry = &limiterEntry{
 						limiter:  rate.NewLimiter(rate.Limit(rps), burst),
-						lastSeen: time.Now(),
+						lastSeen: now,
 					}
 					limiters[ip] = entry
 				}
 				mu.Unlock()
 			}
 
-			entry.lastSeen = time.Now()
+			// lastSeen更新をロックで保護
+			mu.Lock()
+			entry.lastSeen = now
+			mu.Unlock()
 
 			if !entry.limiter.Allow() {
 				return c.JSON(http.StatusTooManyRequests, map[string]interface{}{
