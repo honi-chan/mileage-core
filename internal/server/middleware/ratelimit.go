@@ -59,15 +59,18 @@ func RateLimit(rps float64, burst int) echo.MiddlewareFunc {
 				if !exists {
 					entry = &limiterEntry{
 						limiter:  rate.NewLimiter(rate.Limit(rps), burst),
-						lastSeen: now,
+						lastSeen: now, // 初期値を設定
 					}
 					limiters[ip] = entry
+				} else {
+					// 別のgoroutineが作成済みの場合、lastSeenを更新
+					atomic.StoreInt64(&entry.lastSeen, now)
 				}
 				mu.Unlock()
+			} else {
+				// エントリが既に存在する場合、lastSeenを更新
+				atomic.StoreInt64(&entry.lastSeen, now)
 			}
-
-			// atomic操作でlastSeenを更新（ロック不要）
-			atomic.StoreInt64(&entry.lastSeen, now)
 
 			if !entry.limiter.Allow() {
 				return c.JSON(http.StatusTooManyRequests, map[string]interface{}{
