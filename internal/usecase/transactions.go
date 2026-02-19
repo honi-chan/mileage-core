@@ -51,7 +51,7 @@ func (uc *TransactionsUsecase) Execute(ctx context.Context, input TransactionsIn
 	}
 
 	output := &TransactionsOutput{
-		Items: make([]TransactionItem, 0),
+		Items: make([]TransactionItem, 0, len(txs)), // 事前にキャパシティを確保
 	}
 
 	for i, tx := range txs {

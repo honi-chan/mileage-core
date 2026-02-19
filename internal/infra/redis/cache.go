@@ -72,7 +72,8 @@ func (c *Cache) SetBalance(ctx context.Context, userID string, balance int64, ve
 		return fmt.Errorf("marshal cache: %w", err)
 	}
 
-	if err := c.client.Set(ctx, balanceKey(userID), data, 5*time.Minute).Err(); err != nil {
+	// TTLを1時間に延長（読み取り:書き込み比が高いため）
+	if err := c.client.Set(ctx, balanceKey(userID), data, 1*time.Hour).Err(); err != nil {
 		return fmt.Errorf("redis set: %w", err)
 	}
 	return nil
