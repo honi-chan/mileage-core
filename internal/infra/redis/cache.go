@@ -45,7 +45,8 @@ func (c *Cache) Close() error {
 }
 
 func balanceKey(userID string) string {
-	return "mileage:balance:" + userID
+	// fmt.Sprintf を使用して効率的にキー生成
+	return fmt.Sprintf("mileage:balance:%s", userID)
 }
 
 // GetBalance はキャッシュから残高を取得する
@@ -72,7 +73,8 @@ func (c *Cache) SetBalance(ctx context.Context, userID string, balance int64, ve
 		return fmt.Errorf("marshal cache: %w", err)
 	}
 
-	if err := c.client.Set(ctx, balanceKey(userID), data, 5*time.Minute).Err(); err != nil {
+	// TTLを1時間に延長（読み取り:書き込み比が高いため）
+	if err := c.client.Set(ctx, balanceKey(userID), data, 1*time.Hour).Err(); err != nil {
 		return fmt.Errorf("redis set: %w", err)
 	}
 	return nil

@@ -22,7 +22,6 @@ func Logger(logger *zap.Logger) echo.MiddlewareFunc {
 				zap.String("path", c.Request().URL.Path),
 				zap.Int("status", c.Response().Status),
 				zap.Duration("latency", latency),
-				zap.Float64("latency_ms", float64(latency.Nanoseconds())/1e6),
 				zap.String("request_id", GetRequestID(c)),
 				zap.String("remote_ip", c.RealIP()),
 			}
