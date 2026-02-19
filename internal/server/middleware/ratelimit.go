@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -13,12 +14,12 @@ import (
 func RateLimit(rps float64, burst int) echo.MiddlewareFunc {
 	type limiterEntry struct {
 		limiter  *rate.Limiter
-		lastSeen time.Time
+		lastSeen int64 // Unix nanoタイムスタンプ（atomic操作用）
 	}
 
 	var (
-		mu         sync.RWMutex
-		limiters   = make(map[string]*limiterEntry)
+		mu          sync.RWMutex
+		limiters    = make(map[string]*limiterEntry)
 		cleanupOnce sync.Once
 	)
 
@@ -29,9 +30,11 @@ func RateLimit(rps float64, burst int) echo.MiddlewareFunc {
 			ticker := time.NewTicker(1 * time.Minute)
 			defer ticker.Stop()
 			for range ticker.C {
+				now := time.Now().UnixNano()
 				mu.Lock()
 				for ip, entry := range limiters {
-					if time.Since(entry.lastSeen) > 3*time.Minute {
+					lastSeen := atomic.LoadInt64(&entry.lastSeen)
+					if now-lastSeen > int64(3*time.Minute) {
 						delete(limiters, ip)
 					}
 				}
@@ -43,7 +46,7 @@ func RateLimit(rps float64, burst int) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			ip := c.RealIP()
-			now := time.Now()
+			now := time.Now().UnixNano()
 
 			mu.RLock()
 			entry, exists := limiters[ip]
@@ -63,10 +66,8 @@ func RateLimit(rps float64, burst int) echo.MiddlewareFunc {
 				mu.Unlock()
 			}
 
-			// lastSeen更新をロックで保護
-			mu.Lock()
-			entry.lastSeen = now
-			mu.Unlock()
+			// atomic操作でlastSeenを更新（ロック不要）
+			atomic.StoreInt64(&entry.lastSeen, now)
 
 			if !entry.limiter.Allow() {
 				return c.JSON(http.StatusTooManyRequests, map[string]interface{}{
